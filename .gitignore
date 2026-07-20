@@ -1,0 +1,30 @@
+# Dependências e build
+node_modules/
+frontend/.next/
+frontend/out/
+
+# .NET
+backend/**/bin/
+backend/**/obj/
+
+# Ambiente
+.env
+.env.local
+.env.*.local
+*.user
+*.suo
+
+# IDE
+.vs/
+.idea/
+*.swp
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Docker
+elo_pgdata/
+
+# Logs
+*.log

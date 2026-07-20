@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+:root {
+  --elo-ink: #0c1f1a;
+  --elo-muted: #5b6b66;
+  --elo-teal: #0d9488;
+  --elo-teal-dark: #0f766e;
+  --elo-surface: #ffffff;
+  --elo-bg: #f0f7f5;
+  --elo-border: #d8e5e1;
+}
+
+body {
+  background:
+    radial-gradient(ellipse 80% 50% at 10% -10%, rgba(13, 148, 136, 0.12), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 0%, rgba(59, 130, 246, 0.08), transparent),
+    var(--elo-bg);
+  color: var(--elo-ink);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-in {
+  animation: fade-in 0.35s ease-out both;
+}
