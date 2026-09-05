@@ -49,7 +49,7 @@ public class AuthService(
             .FirstOrDefaultAsync(u => u.Id == usuarioId && u.Ativo, ct)
             ?? throw new NotFoundException("Usuário não encontrado.");
 
-        return new UsuarioAtualDto(usuario.Id, usuario.Nome, usuario.Email, usuario.Perfil);
+        return new UsuarioAtualDto(usuario.Id, usuario.Nome, usuario.Email, usuario.Perfil, usuario.Setor);
     }
 
     private string GerarToken(Usuario usuario, DateTime expira)

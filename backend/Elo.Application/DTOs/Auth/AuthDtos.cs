@@ -16,4 +16,5 @@ public record UsuarioAtualDto(
     Guid Id,
     string Nome,
     string Email,
-    PerfilUsuario Perfil);
+    PerfilUsuario Perfil,
+    string? Setor = null);

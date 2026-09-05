@@ -38,8 +38,7 @@ function MedicoContent() {
   const [busca, setBusca] = useState("");
   const [pacientes, setPacientes] = useState<Paciente[]>([]);
   const [selecionado, setSelecionado] = useState<PacienteDetalhe | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [buscou, setBuscou] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [aba, setAba] = useState<"busca" | "novo" | "solicitar">("busca");
@@ -54,8 +53,9 @@ function MedicoContent() {
 
   const [filtro, setFiltro] = useState({
     diarreia: false,
-    episodios: "",
-    febre: false,
+    episodios: "3",
+    consistencia: "Liquida" as ConsistenciaFezes,
+    emUsoAntibiotico: false,
   });
 
   const [form, setForm] = useState({
@@ -66,9 +66,6 @@ function MedicoContent() {
     usoIbpAntesDiarreia: NR,
     usoIbpDuranteDiarreia: NR,
     dorAbdominal: NR,
-    febre: NR,
-    temperaturaMaxima: "",
-    duracaoFebre: "",
     peritonite: NR,
     ventilacaoMecanica: NR,
     internouUtiDurante: NR,
@@ -124,18 +121,21 @@ function MedicoContent() {
   });
 
   useEffect(() => {
+    void carregarPacientes();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     const id = searchParams.get("paciente");
     if (id) void selecionarPaciente(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
 
-  async function carregarPacientes(termo?: string) {
-    const q = (termo ?? busca).trim();
+  async function carregarPacientes() {
     setLoading(true);
     setErro(null);
-    setBuscou(true);
     try {
-      setPacientes(await api.pacientes.buscar(q || undefined));
+      setPacientes(await api.pacientes.buscar());
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Erro ao buscar pacientes");
       setPacientes([]);
@@ -171,21 +171,32 @@ function MedicoContent() {
       setMsg("Paciente cadastrado.");
       setAba("solicitar");
       setPasso("filtro");
+      void carregarPacientes();
     } catch (e) {
       setErro(e instanceof Error ? e.message : "Erro ao cadastrar");
     }
   }
 
   function avancarFiltro() {
+    const episodios = Number(filtro.episodios);
     if (!filtro.diarreia) {
       setErro("Sem diarreia confirmada — não solicite exame. Use outro fluxo clínico.");
+      return;
+    }
+    if (!Number.isFinite(episodios) || episodios < 3) {
+      setErro("Diarreia: informe pelo menos 3 episódios em 24 horas.");
+      return;
+    }
+    if (filtro.consistencia !== "Liquida" && filtro.consistencia !== "Pastosa") {
+      setErro("Informe o aspecto das fezes (líquido ou pastoso).");
       return;
     }
     setErro(null);
     setForm((f) => ({
       ...f,
-      episodiosDiarreia24h: filtro.episodios || f.episodiosDiarreia24h,
-      febre: filtro.febre ? "Sim" : f.febre,
+      episodiosDiarreia24h: String(episodios),
+      consistenciaFezes: filtro.consistencia,
+      usoAntimicrobianoDiaColeta: filtro.emUsoAntibiotico ? "Sim" : f.usoAntimicrobianoDiaColeta,
     }));
     setPasso("formulario");
   }
@@ -217,11 +228,6 @@ function MedicoContent() {
           usoIbpAntesDiarreia: form.usoIbpAntesDiarreia,
           usoIbpDuranteDiarreia: form.usoIbpDuranteDiarreia,
           dorAbdominal: form.dorAbdominal,
-          febre: form.febre,
-          temperaturaMaxima: form.temperaturaMaxima
-            ? Number(form.temperaturaMaxima)
-            : undefined,
-          duracaoFebre: form.duracaoFebre || undefined,
           peritonite: form.peritonite,
           ventilacaoMecanica: form.ventilacaoMecanica,
           internouUtiDurante: form.internouUtiDurante,
@@ -281,8 +287,17 @@ function MedicoContent() {
     }
   }
 
+  const termo = busca.trim().toLowerCase();
+  const pacientesFiltrados = termo
+    ? pacientes.filter(
+        (p) =>
+          p.nome.toLowerCase().includes(termo) ||
+          p.numeroProntuario.toLowerCase().includes(termo),
+      )
+    : pacientes;
+
   const tabs = [
-    { id: "busca" as const, label: "Buscar" },
+    { id: "busca" as const, label: "Pacientes" },
     { id: "novo" as const, label: "Novo paciente" },
     { id: "solicitar" as const, label: "Ficha completa" },
   ];
@@ -319,31 +334,29 @@ function MedicoContent() {
           <div className="flex gap-3">
             <input
               className="flex-1 rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-teal-500 focus:outline-none focus:ring-2 focus:ring-teal-500/20"
-              placeholder="Nome ou prontuário"
+              placeholder="Filtrar por nome ou prontuário"
               value={busca}
               onChange={(e) => setBusca(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && carregarPacientes()}
             />
             <button
+              type="button"
               onClick={() => carregarPacientes()}
-              className="rounded-lg bg-teal-600 px-5 py-2 text-sm font-medium text-white hover:bg-teal-700"
+              className="rounded-lg border border-slate-200 bg-white px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
             >
-              Buscar
+              Atualizar
             </button>
           </div>
           {loading ? (
-            <Spinner />
-          ) : !buscou ? (
+            <Spinner label="Carregando pacientes..." />
+          ) : pacientesFiltrados.length === 0 ? (
             <p className="py-8 text-center text-sm text-slate-500">
-              Digite e busque para listar pacientes
-            </p>
-          ) : pacientes.length === 0 ? (
-            <p className="py-8 text-center text-sm text-slate-500">
-              Nenhum paciente encontrado
+              {pacientes.length === 0
+                ? "Nenhum paciente cadastrado ainda. Use Novo paciente."
+                : "Nenhum paciente com esse filtro."}
             </p>
           ) : (
             <ul className="mt-4 divide-y divide-slate-100">
-              {pacientes.map((p) => (
+              {pacientesFiltrados.map((p) => (
                 <li key={p.id}>
                   <button
                     type="button"
@@ -433,37 +446,82 @@ function MedicoContent() {
             </p>
           )}
 
+          {selecionado && selecionado.coletasAnteriores?.length > 0 && (
+            <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-teal-700">
+                Coletas anteriores deste paciente
+              </h3>
+              <p className="mt-1 text-xs text-slate-500">
+                Uma nova solicitação não apaga resultados antigos.
+              </p>
+              <ul className="mt-3 divide-y divide-slate-100 text-sm">
+                {selecionado.coletasAnteriores?.map((c) => (
+                  <li key={c.solicitacaoId} className="flex flex-wrap justify-between gap-2 py-2">
+                    <span className="font-mono text-xs font-semibold">{c.idAmostraUnico}</span>
+                    <span className="text-slate-500">
+                      {new Date(c.carimboDataHora).toLocaleDateString("pt-BR")}
+                      {c.testeRapido ? ` · TR ${c.testeRapido}` : ""}
+                      {c.cultura ? ` · Cultura ${c.cultura}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           {selecionado && passo === "filtro" && (
             <div className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="font-semibold text-slate-900">Filtro de sintomas</h3>
-              <label className="flex items-center gap-2 text-sm">
+              <h3 className="font-semibold text-slate-900">Checklist clínico</h3>
+              <label className="flex items-start gap-2 text-sm">
                 <input
                   type="checkbox"
+                  className="mt-1"
                   checked={filtro.diarreia}
                   onChange={(e) =>
                     setFiltro({ ...filtro, diarreia: e.target.checked })
                   }
                 />
-                Diarreia confirmada (obrigatório para exame)
+                <span>
+                  Diarreia confirmada — pelo menos 3 episódios em 24h, aspecto
+                  líquido ou pastoso
+                </span>
               </label>
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field
-                  label="Episódios em 24h"
+                  label="Episódios em 24h (mínimo 3)"
                   value={filtro.episodios}
                   onChange={(v) => setFiltro({ ...filtro, episodios: v })}
                   type="number"
                 />
-                <label className="flex items-end gap-2 pb-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={filtro.febre}
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium text-slate-700">
+                    Aspecto das fezes
+                  </label>
+                  <select
+                    className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm"
+                    value={filtro.consistencia}
                     onChange={(e) =>
-                      setFiltro({ ...filtro, febre: e.target.checked })
+                      setFiltro({
+                        ...filtro,
+                        consistencia: e.target.value as ConsistenciaFezes,
+                      })
                     }
-                  />
-                  Febre
-                </label>
+                  >
+                    <option value="Liquida">Líquido</option>
+                    <option value="Pastosa">Pastoso</option>
+                  </select>
+                </div>
               </div>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={filtro.emUsoAntibiotico}
+                  onChange={(e) =>
+                    setFiltro({ ...filtro, emUsoAntibiotico: e.target.checked })
+                  }
+                />
+                Em uso de antibiótico
+              </label>
               <button
                 type="button"
                 onClick={avancarFiltro}
@@ -650,22 +708,6 @@ function MedicoContent() {
                   label="Dor abdominal / distensão?"
                   value={form.dorAbdominal}
                   onChange={(v) => setForm({ ...form, dorAbdominal: v })}
-                />
-                <SelectSimNao
-                  label="Febre?"
-                  value={form.febre}
-                  onChange={(v) => setForm({ ...form, febre: v })}
-                />
-                <Field
-                  label="Temperatura (°C)"
-                  value={form.temperaturaMaxima}
-                  onChange={(v) => setForm({ ...form, temperaturaMaxima: v })}
-                  type="number"
-                />
-                <Field
-                  label="Duração da febre"
-                  value={form.duracaoFebre}
-                  onChange={(v) => setForm({ ...form, duracaoFebre: v })}
                 />
               </Section>
 

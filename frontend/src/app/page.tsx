@@ -123,21 +123,29 @@ export default function Home() {
               Painel
             </p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight text-[var(--elo-ink)]">
-              {user ? `Olá, ${user.nome.split(" ")[0]}` : "Sistema Elo"}
+              {user ? `Olá, ${user.nome.split(" ")[0]}` : "Cdigital"}
             </h1>
             <p className="mt-2 max-w-xl text-sm text-[var(--elo-muted)]">
               {user
                 ? "Escolha um módulo abaixo. Médicos veem os pacientes cadastrados para acesso rápido."
-                : "Entre com suas credenciais para acessar os módulos hospitalares."}
+                : "Plataforma do NEPEC para pesquisa e vigilância de C. difficile. O acesso é individual."}
             </p>
           </div>
           {!user && (
-            <Link
-              href="/login"
-              className="rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-teal-600/20 hover:bg-teal-700"
-            >
-              Entrar no sistema
-            </Link>
+            <div className="flex flex-wrap gap-2">
+              <Link
+                href="/login"
+                className="rounded-xl bg-teal-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-teal-600/20 hover:bg-teal-700"
+              >
+                Entrar
+              </Link>
+              <Link
+                href="/solicitar-acesso"
+                className="rounded-xl border border-[var(--elo-border)] bg-white px-5 py-2.5 text-sm font-medium text-[var(--elo-ink)] hover:border-teal-300"
+              >
+                Solicitar acesso
+              </Link>
+            </div>
           )}
           {user && (
             <Link
@@ -260,13 +268,28 @@ export default function Home() {
           <section className="animate-in rounded-2xl border border-blue-100 bg-blue-50/50 p-6">
             <h2 className="font-semibold text-slate-900">Fila do laboratório</h2>
             <p className="mt-1 text-sm text-slate-600">
-              Confirme recebimentos e lance resultados (toxina / cepa).
+              Acompanhe a trilha da amostra, lance teste rápido e cultura e gere o laudo.
             </p>
             <Link
               href="/laboratorio"
               className="mt-4 inline-flex rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
               Abrir fila
+            </Link>
+          </section>
+        )}
+
+        {user && user.perfil === "Admin" && (
+          <section className="animate-in rounded-2xl border border-teal-100 bg-teal-50/50 p-6">
+            <h2 className="font-semibold text-slate-900">Administração</h2>
+            <p className="mt-1 text-sm text-slate-600">
+              Aprove ou recuse pedidos de acesso individual à plataforma.
+            </p>
+            <Link
+              href="/admin"
+              className="mt-4 inline-flex rounded-lg bg-teal-700 px-4 py-2 text-sm font-medium text-white hover:bg-teal-800"
+            >
+              Abrir pedidos
             </Link>
           </section>
         )}

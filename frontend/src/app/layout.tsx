@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Sistema Elo",
-  description: "Solicitação de exames, resultados laboratoriais e vigilância epidemiológica hospitalar",
+  title: "Cdigital · NEPEC",
+  description:
+    "Plataforma Cdigital do NEPEC: solicitação de exames, resultados laboratoriais e vigilância de C. difficile",
 };
 
 export default function RootLayout({

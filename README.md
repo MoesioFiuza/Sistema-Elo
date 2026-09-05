@@ -1,6 +1,8 @@
-# Sistema Elo
+# Cdigital
 
-Plataforma hospitalar integrada: solicitação de exames, resultados laboratoriais, alertas à CCIH e registro de desfechos clínicos.
+Plataforma do **NEPEC** para solicitação de exames, resultados laboratoriais, alertas à CCIH e registro de desfechos clínicos de *C. difficile*.
+
+O acesso é **individual** (e-mail e senha de cada profissional). Pedidos de acesso vão para a administradora `carolfreitasmuniz@alu.ufc.br`.
 
 ## Stack
 
@@ -11,80 +13,63 @@ Plataforma hospitalar integrada: solicitação de exames, resultados laboratoria
 | Banco     | PostgreSQL 16           |
 | ORM       | Entity Framework Core   |
 
-## Estrutura (monorepo)
+## Estrutura
 
 ```
 sistema-elo/
-├── backend/          # Clean Architecture (.NET)
-│   ├── Elo.Api/
-│   ├── Elo.Application/
-│   ├── Elo.Domain/
-│   └── Elo.Infrastructure/
-├── frontend/         # Next.js App Router
+├── backend/
+├── frontend/
 ├── docs/
-└── docker-compose.yml
+├── docker-compose.yml
+└── .env.example
 ```
-
-## Pré-requisitos
-
-- [.NET SDK](https://dotnet.microsoft.com/download) 9+ (ou 10 preview)
-- [Node.js](https://nodejs.org/) 22+
-- [Docker](https://www.docker.com/) (opcional, para Postgres + stack completa)
 
 ## Desenvolvimento local
 
-### 1. Banco de dados (Docker)
-
 ```bash
+cp .env.example .env
+# em desenvolvimento você pode usar:
+# ASPNETCORE_ENVIRONMENT=Development
+# SEED_DEMO=true
+# NEXT_PUBLIC_SHOW_DEMO=true
+
 docker compose up postgres -d
+cd backend && dotnet run --project Elo.Api
+cd frontend && cp .env.example .env.local && npm run dev
 ```
 
-### 2. API (.NET)
+- API: `http://localhost:5000` (ou a porta do `launchSettings`)
+- Frontend: `http://localhost:3000`
+- Health: `GET /api/v1/health`
+
+Em desenvolvimento, se o banco estiver vazio, o seed cria a administradora e usuários de teste (`medico@elo.local`, `lab@elo.local`, senha `Elo@123`).
+
+## Produção
+
+1. Copie `.env.example` para `.env`.
+2. Defina senhas fortes: `POSTGRES_PASSWORD`, `JWT_SECRET` (≥ 32 caracteres), `ADMIN_PASSWORD`.
+3. Ajuste `FRONTEND_URL` e `CORS_ORIGIN` para o domínio público.
+4. Opcional: configure SMTP para avisar a administradora e o solicitante.
+5. Suba a stack:
 
 ```bash
-cd backend
-dotnet run --project Elo.Api
+docker compose up --build -d
 ```
 
-API: `http://localhost:5000` (ou porta do launchSettings)  
-Health: `GET /api/v1/health`  
-OpenAPI (dev): `/openapi/v1.json`
-
-### 3. Frontend (Next.js)
-
-```bash
-cd frontend
-cp .env.example .env.local   # se existir
-npm run dev
-```
-
-Frontend: `http://localhost:3000`
-
-### Stack completa (Docker)
-
-```bash
-docker compose up --build
-```
+Em produção o seed **não** cria pacientes nem usuários de demonstração. Só garante a conta admin (`carolfreitasmuniz@alu.ufc.br`) se ela ainda não existir.
 
 ## Módulos
 
-1. **Admissão e solicitação** — médico: paciente, formulário clínico, ID da amostra
-2. **Laboratório** — fila, recebimento, resultado manual
-3. **Alerta e vigilância** — CCIH: alertas, dashboard, isolamento
-4. **Pesquisa e desfecho** — antibioticoterapia, alta, análises NEPEC
+1. **Médico** — admissão, checklist de diarreia e solicitação
+2. **Laboratório** — trilha da amostra, teste rápido, cultura e laudo
+3. **CCIH** — alertas e isolamento
+4. **Pesquisa** — desfechos clínicos (restrito à equipe; o laboratório não acessa)
+5. **Admin** — aprovação de pedidos de acesso
 
-## Perfis (RBAC)
+## Perfis
 
-- Médico, Laboratório, CCIH, Enfermagem, Admin
-
-## Próximos passos
-
-- [ ] Autenticação JWT + refresh token (ou Azure AD hospitalar)
-- [ ] CRUD de pacientes e solicitações
-- [ ] Formulário clínico completo (~50 colunas)
-- [ ] Alertas por e-mail em resultado positivo
-- [ ] Geração de tipos TypeScript a partir do OpenAPI
+Médico, Laboratório, CCIH, Enfermagem, Admin.
 
 ## LGPD e auditoria
 
-Dados sensíveis de saúde: logs de acesso imutáveis (`auditoria_logs`), HTTPS em produção, retenção e consentimento conforme política do hospital.
+Dados sensíveis de saúde: HTTPS em produção, CORS restrito, JWT com segredo próprio, cabeçalhos de segurança e retenção conforme a política do hospital.

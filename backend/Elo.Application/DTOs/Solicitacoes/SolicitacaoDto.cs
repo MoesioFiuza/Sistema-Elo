@@ -11,7 +11,9 @@ public record SolicitacaoDto(
     string NumeroProntuario,
     string Enfermaria,
     string? Leito,
-    ResultadoTeste? TesteRapido);
+    ResultadoTeste? TesteRapido,
+    ResultadoTeste? Cultura = null,
+    QualidadeAmostra QualidadeAmostra = QualidadeAmostra.NaoAvaliada);
 
 public record SolicitacaoDetalheDto(
     Guid Id,
@@ -20,6 +22,7 @@ public record SolicitacaoDetalheDto(
     DateTime CarimboDataHora,
     DateTime? DataColeta,
     DateTime? DataRecebimentoLaboratorio,
+    QualidadeAmostra QualidadeAmostra,
     string PacienteNome,
     string NumeroProntuario,
     string Enfermaria,
@@ -59,7 +62,12 @@ public record ResultadoLaboratorialDto(
     ResultadoTeste ToxinaB,
     ResultadoTeste Cultura,
     string? CepaIdentificada,
-    bool AlertaPositivoEnviado);
+    bool AlertaPositivoEnviado,
+    string? AssinadoPorNome = null,
+    DateTime? AssinadoEm = null,
+    bool TemAssinatura = false,
+    string? LaudoAnexoNome = null,
+    DateTime? LaudoGeradoEm = null);
 
 public record CreateSolicitacaoRequest(
     Guid PacienteId,
@@ -134,8 +142,31 @@ public record FormularioClinicoInput(
 
 public record RegistrarResultadoRequest(
     ResultadoTeste TesteRapido,
+    ResultadoTeste Cultura = ResultadoTeste.NaoRegistrado,
     ResultadoTeste ToxinaA = ResultadoTeste.NaoRegistrado,
     ResultadoTeste ToxinaB = ResultadoTeste.NaoRegistrado,
-    ResultadoTeste Cultura = ResultadoTeste.NaoRegistrado,
     string? CepaIdentificada = null,
-    string? ObservacoesLaboratorio = null);
+    string? ObservacoesLaboratorio = null,
+    string? AssinaturaBase64 = null,
+    string? AssinadoPorNome = null);
+
+public record AvaliarAmostraRequest(QualidadeAmostra Qualidade);
+
+public record LaudoDto(
+    Guid SolicitacaoId,
+    string IdAmostraUnico,
+    string PacienteNome,
+    string NumeroProntuario,
+    string Enfermaria,
+    DateTime CarimboDataHora,
+    DateTime? DataColeta,
+    DateTime DataResultado,
+    ResultadoTeste TesteRapido,
+    ResultadoTeste Cultura,
+    string? CepaIdentificada,
+    string? ObservacoesLaboratorio,
+    string? AssinaturaBase64,
+    string? AssinadoPorNome,
+    DateTime? AssinadoEm,
+    string Plataforma,
+    string Laboratorio);

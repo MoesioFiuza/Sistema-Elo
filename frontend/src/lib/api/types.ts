@@ -6,7 +6,10 @@ export type StatusSolicitacao =
   | "Coletado"
   | "EmAnalise"
   | "ResultadoLiberado"
-  | "Cancelado";
+  | "Cancelado"
+  | "AmostraInsatisfatoria";
+export type QualidadeAmostra = "NaoAvaliada" | "Satisfatoria" | "Insatisfatoria";
+export type StatusSolicitacaoAcesso = "Pendente" | "Aprovada" | "Recusada";
 export type ResultadoTeste = "NaoRegistrado" | "Positivo" | "Negativo" | "Indeterminado";
 export type ConsistenciaFezes = "NaoRegistrado" | "Liquida" | "Pastosa" | "Formada";
 export type RespostaClinica =
@@ -17,6 +20,17 @@ export type RespostaClinica =
   | "Cura"
   | "Recidiva";
 export type TipoNotificacao = "Isolamento" | "Liberacao" | "Resultado" | "Sistema";
+
+export type ColetaHistorico = {
+  solicitacaoId: string;
+  idAmostraUnico: string;
+  status: StatusSolicitacao;
+  carimboDataHora: string;
+  dataColeta: string | null;
+  dataResultado: string | null;
+  testeRapido: ResultadoTeste | null;
+  cultura: ResultadoTeste | null;
+};
 
 export type Paciente = {
   id: string;
@@ -40,6 +54,7 @@ export type PacienteDetalhe = Paciente & {
     dataInternacao: string;
     ativa: boolean;
   }[];
+  coletasAnteriores?: ColetaHistorico[];
 };
 
 export type Solicitacao = {
@@ -52,11 +67,14 @@ export type Solicitacao = {
   enfermaria: string;
   leito: string | null;
   testeRapido: ResultadoTeste | null;
+  cultura: ResultadoTeste | null;
+  qualidadeAmostra: QualidadeAmostra;
 };
 
 export type SolicitacaoDetalhe = Solicitacao & {
   dataColeta: string | null;
   dataRecebimentoLaboratorio: string | null;
+  qualidadeAmostra: QualidadeAmostra;
   formularioClinico: Record<string, unknown> | null;
   resultado: {
     dataResultado: string;
@@ -66,7 +84,45 @@ export type SolicitacaoDetalhe = Solicitacao & {
     cultura: ResultadoTeste;
     cepaIdentificada: string | null;
     alertaPositivoEnviado: boolean;
+    assinadoPorNome: string | null;
+    assinadoEm: string | null;
+    temAssinatura: boolean;
+    laudoAnexoNome: string | null;
+    laudoGeradoEm: string | null;
   } | null;
+};
+
+export type Laudo = {
+  solicitacaoId: string;
+  idAmostraUnico: string;
+  pacienteNome: string;
+  numeroProntuario: string;
+  enfermaria: string;
+  carimboDataHora: string;
+  dataColeta: string | null;
+  dataResultado: string;
+  testeRapido: ResultadoTeste;
+  cultura: ResultadoTeste;
+  cepaIdentificada: string | null;
+  observacoesLaboratorio: string | null;
+  assinaturaBase64: string | null;
+  assinadoPorNome: string | null;
+  assinadoEm: string | null;
+  plataforma: string;
+  laboratorio: string;
+};
+
+export type SolicitacaoAcesso = {
+  id: string;
+  nome: string;
+  email: string;
+  perfilSolicitado: string;
+  setor: string | null;
+  justificativa: string | null;
+  status: StatusSolicitacaoAcesso;
+  motivoRecusa: string | null;
+  criadoEm: string;
+  revisadoEm: string | null;
 };
 
 export type FormularioClinicoPayload = {

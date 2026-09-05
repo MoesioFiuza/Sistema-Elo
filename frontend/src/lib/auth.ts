@@ -45,14 +45,14 @@ export function authHeader(): Record<string, string> {
 export function homeForPerfil(perfil: PerfilUsuario): string {
   switch (perfil) {
     case "Medico":
-      return "/";
+      return "/medico";
     case "Laboratorio":
       return "/laboratorio";
     case "CCIH":
     case "Enfermagem":
       return "/ccih";
     case "Admin":
-      return "/";
+      return "/admin";
     default:
       return "/";
   }

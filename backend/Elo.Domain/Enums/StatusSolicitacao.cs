@@ -6,5 +6,6 @@ public enum StatusSolicitacao
     Coletado = 1,
     EmAnalise = 2,
     ResultadoLiberado = 3,
-    Cancelado = 4
+    Cancelado = 4,
+    AmostraInsatisfatoria = 5
 }

@@ -4,14 +4,17 @@ import type {
   DashboardResumo,
   FormularioClinicoPayload,
   InternacaoFichaPayload,
+  Laudo,
   LoginResponse,
   Notificacao,
   Paciente,
   PacienteDetalhe,
   PacienteHistoricoPayload,
+  QualidadeAmostra,
   ResultadoTeste,
   SimNao,
   Solicitacao,
+  SolicitacaoAcesso,
   SolicitacaoDetalhe,
   Sexo,
   Tratamento,
@@ -95,6 +98,37 @@ export const api = {
         method: "POST",
         body: JSON.stringify({ email, senha }),
       }),
+    solicitarAcesso: (data: {
+      nome: string;
+      email: string;
+      perfilSolicitado: string;
+      setor?: string;
+      justificativa?: string;
+    }) =>
+      request<{ mensagem: string; id: string }>("/auth/solicitar-acesso", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
+
+  acessos: {
+    listar: () => request<SolicitacaoAcesso[]>("/acessos"),
+    aprovar: (id: string, senhaInicial?: string) =>
+      request<{
+        usuarioId: string;
+        email: string;
+        nome: string;
+        perfil: string;
+        senhaInicial: string;
+      }>(`/acessos/${id}/aprovar`, {
+        method: "POST",
+        body: JSON.stringify({ senhaInicial: senhaInicial || undefined }),
+      }),
+    recusar: (id: string, motivo: string) =>
+      request<void>(`/acessos/${id}/recusar`, {
+        method: "POST",
+        body: JSON.stringify({ motivo }),
+      }),
   },
 
   pacientes: {
@@ -119,11 +153,15 @@ export const api = {
   },
 
   solicitacoes: {
-    listar: (status?: string) =>
-      request<Solicitacao[]>(
-        `/solicitacoes${status ? `?status=${status}` : ""}`,
-      ),
+    listar: (status?: string, pacienteId?: string) => {
+      const params = new URLSearchParams();
+      if (status) params.set("status", status);
+      if (pacienteId) params.set("pacienteId", pacienteId);
+      const qs = params.toString();
+      return request<Solicitacao[]>(`/solicitacoes${qs ? `?${qs}` : ""}`);
+    },
     fila: () => request<Solicitacao[]>("/solicitacoes/fila"),
+    historico: () => request<Solicitacao[]>("/solicitacoes/historico"),
     obter: (id: string) => request<SolicitacaoDetalhe>(`/solicitacoes/${id}`),
     criar: (data: {
       pacienteId: string;
@@ -136,24 +174,77 @@ export const api = {
         method: "POST",
         body: JSON.stringify(data),
       }),
-    receber: (id: string) =>
-      request<SolicitacaoDetalhe>(`/solicitacoes/${id}/receber`, {
+    coleta: (id: string) =>
+      request<SolicitacaoDetalhe>(`/solicitacoes/${id}/coleta`, {
         method: "POST",
+      }),
+    amostra: (id: string, qualidade: QualidadeAmostra) =>
+      request<SolicitacaoDetalhe>(`/solicitacoes/${id}/amostra`, {
+        method: "POST",
+        body: JSON.stringify({ qualidade }),
       }),
     resultado: (
       id: string,
       data: {
         testeRapido: ResultadoTeste;
-        toxinaA?: ResultadoTeste;
-        toxinaB?: ResultadoTeste;
-        cultura?: ResultadoTeste;
+        cultura: ResultadoTeste;
         cepaIdentificada?: string;
+        observacoesLaboratorio?: string;
+        assinaturaBase64?: string;
+        assinadoPorNome?: string;
       },
     ) =>
       request<SolicitacaoDetalhe>(`/solicitacoes/${id}/resultado`, {
         method: "POST",
         body: JSON.stringify(data),
       }),
+    laudo: (id: string) => request<Laudo>(`/solicitacoes/${id}/laudo`),
+    baixarAnexo: async (id: string) => {
+      const response = await fetch(`${API_BASE_URL}/solicitacoes/${id}/laudo-anexo`, {
+        headers: { ...authHeader() },
+        cache: "no-store",
+      });
+      if (!response.ok) {
+        throw new ApiError(response.status, "Não foi possível baixar o laudo anexado.");
+      }
+      const blob = await response.blob();
+      const disposition = response.headers.get("content-disposition") ?? "";
+      const match = /filename\*?=(?:UTF-8'')?["']?([^"';]+)/i.exec(disposition);
+      const nome = match ? decodeURIComponent(match[1]) : "laudo-anexo";
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = nome;
+      a.click();
+      URL.revokeObjectURL(url);
+    },
+    anexarLaudo: async (id: string, arquivo: File) => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 20_000);
+      try {
+        const form = new FormData();
+        form.append("arquivo", arquivo);
+        const response = await fetch(`${API_BASE_URL}/solicitacoes/${id}/laudo-anexo`, {
+          method: "POST",
+          headers: { ...authHeader() },
+          body: form,
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          let message = response.statusText;
+          try {
+            const body = await response.json();
+            message = body.erro ?? message;
+          } catch {
+            /* ignore */
+          }
+          throw new ApiError(response.status, message || "Falha ao anexar laudo");
+        }
+        return response.json() as Promise<SolicitacaoDetalhe>;
+      } finally {
+        clearTimeout(timer);
+      }
+    },
   },
 
   dashboard: {
@@ -204,9 +295,17 @@ export function formatarData(iso: string) {
 }
 
 export const statusLabel: Record<string, string> = {
-  Pendente: "Pendente",
-  Coletado: "Coletado",
-  EmAnalise: "Em análise",
-  ResultadoLiberado: "Resultado liberado",
+  Pendente: "Solicitação em andamento",
+  Coletado: "Coleta realizada",
+  EmAnalise: "Testagem em andamento",
+  ResultadoLiberado: "Testagem realizada",
   Cancelado: "Cancelado",
+  AmostraInsatisfatoria: "Amostra insatisfatória",
+};
+
+export const resultadoLabel: Record<string, string> = {
+  NaoRegistrado: "Não registrado",
+  Positivo: "Positivo",
+  Negativo: "Negativo",
+  Indeterminado: "Indeterminado",
 };

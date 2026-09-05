@@ -14,8 +14,9 @@ public class HealthController : ControllerBase
         return Ok(new
         {
             status = "ok",
-            sistema = "Elo",
-            versao = "0.1.0",
+            sistema = "Cdigital",
+            laboratorio = "NEPEC",
+            versao = "1.0.0",
             timestamp = DateTime.UtcNow
         });
     }

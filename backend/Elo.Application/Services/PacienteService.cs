@@ -41,6 +41,8 @@ public class PacienteService(IApplicationDbContext db) : IPacienteService
         var paciente = await db.Pacientes
             .AsNoTracking()
             .Include(p => p.Internacoes)
+            .Include(p => p.Solicitacoes)
+                .ThenInclude(s => s.ResultadoLaboratorial)
             .FirstOrDefaultAsync(p => p.Id == id, ct)
             ?? throw new NotFoundException("Paciente não encontrado.");
 
@@ -80,6 +82,8 @@ public class PacienteService(IApplicationDbContext db) : IPacienteService
         paciente = await db.Pacientes
             .AsNoTracking()
             .Include(p => p.Internacoes)
+            .Include(p => p.Solicitacoes)
+                .ThenInclude(s => s.ResultadoLaboratorial)
             .FirstAsync(p => p.Id == paciente.Id, ct);
 
         return MapDetalhe(paciente);
@@ -105,5 +109,17 @@ public class PacienteService(IApplicationDbContext db) : IPacienteService
                     i.Leito,
                     i.DataInternacao,
                     i.DataAlta == null))
+                .ToList(),
+            paciente.Solicitacoes
+                .OrderByDescending(s => s.CarimboDataHora)
+                .Select(s => new ColetaHistoricoDto(
+                    s.Id,
+                    s.IdAmostraUnico,
+                    s.Status,
+                    s.CarimboDataHora,
+                    s.DataColeta,
+                    s.ResultadoLaboratorial?.DataResultado,
+                    s.ResultadoLaboratorial?.TesteRapido,
+                    s.ResultadoLaboratorial?.Cultura))
                 .ToList());
 }

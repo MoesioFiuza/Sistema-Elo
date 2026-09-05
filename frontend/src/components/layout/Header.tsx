@@ -4,12 +4,14 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { clearAuth, getAuth, type AuthUser, type PerfilUsuario } from "@/lib/auth";
 import { useEffect, useState } from "react";
+import { BrandMark } from "@/components/brand/BrandMark";
 
 const NAV = [
   { href: "/medico", label: "Médico", perfis: ["Medico", "Admin"] as PerfilUsuario[] },
   { href: "/laboratorio", label: "Laboratório", perfis: ["Laboratorio", "Admin"] as PerfilUsuario[] },
   { href: "/ccih", label: "CCIH", perfis: ["CCIH", "Enfermagem", "Admin"] as PerfilUsuario[] },
   { href: "/pesquisa", label: "Pesquisa", perfis: ["CCIH", "Medico", "Admin"] as PerfilUsuario[] },
+  { href: "/admin", label: "Admin", perfis: ["Admin"] as PerfilUsuario[] },
 ];
 
 type HeaderProps = {
@@ -50,17 +52,7 @@ export function Header({ showLogin = true, backHref }: HeaderProps) {
                 Início
               </Link>
             )}
-            <Link href="/" className="flex items-center gap-2.5">
-              <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-teal-500 to-teal-700 text-sm font-bold text-white shadow-md shadow-teal-600/25">
-                E
-              </span>
-              <div className="leading-tight">
-                <span className="block font-semibold text-[var(--elo-ink)]">Sistema Elo</span>
-                <span className="hidden text-[10px] uppercase tracking-wider text-[var(--elo-muted)] sm:block">
-                  Hospital
-                </span>
-              </div>
-            </Link>
+            <BrandMark />
           </div>
           <div className="flex items-center gap-3">
             {user ? (
@@ -96,17 +88,7 @@ export function Header({ showLogin = true, backHref }: HeaderProps) {
             {NAV.map((item) => {
               const ativo = pathname === item.href || pathname.startsWith(item.href + "/");
               const ok = podeAcessar(item.perfis);
-              if (!ok) {
-                return (
-                  <span
-                    key={item.href}
-                    title="Perfil sem acesso a este módulo"
-                    className="cursor-not-allowed whitespace-nowrap rounded-full px-3.5 py-1.5 text-sm text-slate-300"
-                  >
-                    {item.label}
-                  </span>
-                );
-              }
+              if (!ok) return null;
               return (
                 <Link
                   key={item.href}

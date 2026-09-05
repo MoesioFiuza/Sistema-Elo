@@ -18,6 +18,7 @@ public static class DependencyInjection
                 npgsql.MigrationsAssembly(typeof(EloDbContext).Assembly.FullName)));
 
         services.AddScoped<IApplicationDbContext>(provider => provider.GetRequiredService<EloDbContext>());
+        services.AddSingleton<IEmailSender, Elo.Infrastructure.Email.EmailSender>();
 
         return services;
     }

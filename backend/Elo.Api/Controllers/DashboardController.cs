@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Elo.Api.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = "Vigilancia")]
 [Route("api/v1/[controller]")]
 public class DashboardController(IDashboardService dashboardService) : ControllerBase
 {

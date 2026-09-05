@@ -1,25 +1,34 @@
 using Elo.Application.Common;
 using Elo.Application.Common.Interfaces;
 using Elo.Application.DTOs.Solicitacoes;
+using Elo.Application.Options;
 using Elo.Domain.Entities;
 using Elo.Domain.Enums;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace Elo.Application.Services;
 
-public class SolicitacaoService(IApplicationDbContext db) : ISolicitacaoService
+public class SolicitacaoService(
+    IApplicationDbContext db,
+    ICurrentUser currentUser,
+    IAuditoriaService auditoria,
+    IOptions<PlataformaOptions> plataformaOptions) : ISolicitacaoService
 {
-    public async Task<IReadOnlyList<SolicitacaoDto>> ListarAsync(StatusSolicitacao? status, CancellationToken ct = default)
+    private readonly PlataformaOptions _plataforma = plataformaOptions.Value;
+
+    public async Task<IReadOnlyList<SolicitacaoDto>> ListarAsync(
+        StatusSolicitacao? status,
+        Guid? pacienteId,
+        CancellationToken ct = default)
     {
-        var query = db.SolicitacoesExame
-            .AsNoTracking()
-            .Include(s => s.Paciente)
-            .Include(s => s.Internacao)
-            .Include(s => s.ResultadoLaboratorial)
-            .AsQueryable();
+        var query = db.SolicitacoesExame.AsNoTracking().AsQueryable();
 
         if (status.HasValue)
             query = query.Where(s => s.Status == status.Value);
+
+        if (pacienteId.HasValue)
+            query = query.Where(s => s.PacienteId == pacienteId.Value);
 
         return await query
             .OrderByDescending(s => s.CarimboDataHora)
@@ -32,7 +41,9 @@ public class SolicitacaoService(IApplicationDbContext db) : ISolicitacaoService
                 s.Paciente.NumeroProntuario,
                 s.Internacao.Enfermaria,
                 s.Internacao.Leito,
-                s.ResultadoLaboratorial != null ? s.ResultadoLaboratorial.TesteRapido : null))
+                s.ResultadoLaboratorial != null ? s.ResultadoLaboratorial.TesteRapido : null,
+                s.ResultadoLaboratorial != null ? s.ResultadoLaboratorial.Cultura : null,
+                s.QualidadeAmostra))
             .ToListAsync(ct);
     }
 
@@ -40,7 +51,11 @@ public class SolicitacaoService(IApplicationDbContext db) : ISolicitacaoService
     {
         return await db.SolicitacoesExame
             .AsNoTracking()
-            .Where(s => s.Status == StatusSolicitacao.Pendente || s.Status == StatusSolicitacao.EmAnalise)
+            .Where(s =>
+                s.Status == StatusSolicitacao.Pendente ||
+                s.Status == StatusSolicitacao.Coletado ||
+                s.Status == StatusSolicitacao.EmAnalise ||
+                s.Status == StatusSolicitacao.AmostraInsatisfatoria)
             .OrderByDescending(s => s.CarimboDataHora)
             .Select(s => new SolicitacaoDto(
                 s.Id,
@@ -51,7 +66,31 @@ public class SolicitacaoService(IApplicationDbContext db) : ISolicitacaoService
                 s.Paciente.NumeroProntuario,
                 s.Internacao.Enfermaria,
                 s.Internacao.Leito,
-                s.ResultadoLaboratorial != null ? s.ResultadoLaboratorial.TesteRapido : null))
+                s.ResultadoLaboratorial != null ? s.ResultadoLaboratorial.TesteRapido : null,
+                s.ResultadoLaboratorial != null ? s.ResultadoLaboratorial.Cultura : null,
+                s.QualidadeAmostra))
+            .ToListAsync(ct);
+    }
+
+    public async Task<IReadOnlyList<SolicitacaoDto>> ListarHistoricoLabAsync(CancellationToken ct = default)
+    {
+        return await db.SolicitacoesExame
+            .AsNoTracking()
+            .Where(s => s.Status == StatusSolicitacao.ResultadoLiberado)
+            .OrderByDescending(s => s.CarimboDataHora)
+            .Take(80)
+            .Select(s => new SolicitacaoDto(
+                s.Id,
+                s.IdAmostraUnico,
+                s.Status,
+                s.CarimboDataHora,
+                s.Paciente.Nome,
+                s.Paciente.NumeroProntuario,
+                s.Internacao.Enfermaria,
+                s.Internacao.Leito,
+                s.ResultadoLaboratorial != null ? s.ResultadoLaboratorial.TesteRapido : null,
+                s.ResultadoLaboratorial != null ? s.ResultadoLaboratorial.Cultura : null,
+                s.QualidadeAmostra))
             .ToListAsync(ct);
     }
 
@@ -69,6 +108,12 @@ public class SolicitacaoService(IApplicationDbContext db) : ISolicitacaoService
         var form = request.Formulario;
         if (form.Diarreia != SimNaoNaoRegistrado.Sim)
             throw new ValidationAppException("Filtro clínico: solicite exame apenas com diarreia confirmada.");
+
+        if (form.EpisodiosDiarreia24h is null or < 3)
+            throw new ValidationAppException("Diarreia: informe pelo menos 3 episódios em 24 horas.");
+
+        if (form.ConsistenciaFezes is not (ConsistenciaFezes.Liquida or ConsistenciaFezes.Pastosa))
+            throw new ValidationAppException("Diarreia: a consistência deve ser líquida ou pastosa.");
 
         var paciente = await db.Pacientes
             .Include(p => p.Internacoes)
@@ -125,17 +170,15 @@ public class SolicitacaoService(IApplicationDbContext db) : ISolicitacaoService
                 internacao.DataObito ??= DateTime.UtcNow;
         }
 
-        var solicitante = await db.Usuarios
-            .Where(u => u.Ativo && u.Perfil == PerfilUsuario.Medico)
-            .OrderBy(u => u.CriadoEm)
-            .FirstOrDefaultAsync(ct)
-            ?? throw new ValidationAppException("Nenhum médico cadastrado no sistema.");
+        var solicitanteId = currentUser.UsuarioId
+            ?? throw new ForbiddenException("Sessão inválida.");
 
         var solicitacao = new SolicitacaoExame
         {
+            Id = Guid.NewGuid(),
             PacienteId = paciente.Id,
             InternacaoId = internacao.Id,
-            SolicitanteId = solicitante.Id,
+            SolicitanteId = solicitanteId,
             CarimboDataHora = DateTime.UtcNow,
             IdAmostraUnico = await GerarIdAmostraAsync(ct),
             Status = StatusSolicitacao.Pendente,
@@ -176,6 +219,7 @@ public class SolicitacaoService(IApplicationDbContext db) : ISolicitacaoService
         };
 
         db.SolicitacoesExame.Add(solicitacao);
+        auditoria.Registrar("SolicitacaoExame", solicitacao.Id, "criar", solicitacao.IdAmostraUnico);
         await db.SaveChangesAsync(ct);
 
         var criada = await CarregarDetalheQuery()
@@ -184,25 +228,50 @@ public class SolicitacaoService(IApplicationDbContext db) : ISolicitacaoService
         return MapDetalhe(criada);
     }
 
-    public async Task<SolicitacaoDetalheDto> ConfirmarRecebimentoAsync(Guid id, CancellationToken ct = default)
+    public async Task<SolicitacaoDetalheDto> RegistrarColetaAsync(Guid id, CancellationToken ct = default)
     {
         var solicitacao = await db.SolicitacoesExame
             .FirstOrDefaultAsync(s => s.Id == id, ct)
             ?? throw new NotFoundException("Solicitação não encontrada.");
 
-        if (solicitacao.Status != StatusSolicitacao.Pendente)
-            throw new ValidationAppException("Somente solicitações pendentes podem ser recebidas.");
+        if (solicitacao.Status is not (StatusSolicitacao.Pendente or StatusSolicitacao.AmostraInsatisfatoria))
+            throw new ValidationAppException("Só é possível registrar coleta em solicitação em andamento ou amostra insatisfatória.");
 
-        solicitacao.Status = StatusSolicitacao.EmAnalise;
+        solicitacao.Status = StatusSolicitacao.Coletado;
+        solicitacao.DataColeta = DateTime.UtcNow;
         solicitacao.DataRecebimentoLaboratorio = DateTime.UtcNow;
-        solicitacao.DataColeta ??= DateTime.UtcNow;
+        solicitacao.QualidadeAmostra = QualidadeAmostra.NaoAvaliada;
+        solicitacao.DataAvaliacaoAmostra = null;
 
+        auditoria.Registrar("SolicitacaoExame", solicitacao.Id, "coleta", solicitacao.IdAmostraUnico);
         await db.SaveChangesAsync(ct);
+        return await RecarregarDetalheAsync(id, ct);
+    }
 
-        var atualizada = await CarregarDetalheQuery()
-            .FirstAsync(s => s.Id == id, ct);
+    public async Task<SolicitacaoDetalheDto> AvaliarAmostraAsync(
+        Guid id,
+        AvaliarAmostraRequest request,
+        CancellationToken ct = default)
+    {
+        var solicitacao = await db.SolicitacoesExame
+            .FirstOrDefaultAsync(s => s.Id == id, ct)
+            ?? throw new NotFoundException("Solicitação não encontrada.");
 
-        return MapDetalhe(atualizada);
+        if (solicitacao.Status is not (StatusSolicitacao.Coletado or StatusSolicitacao.EmAnalise or StatusSolicitacao.AmostraInsatisfatoria))
+            throw new ValidationAppException("Avalie a amostra após registrar a coleta.");
+
+        if (request.Qualidade is not (QualidadeAmostra.Satisfatoria or QualidadeAmostra.Insatisfatoria))
+            throw new ValidationAppException("Informe se a amostra é satisfatória ou insatisfatória.");
+
+        solicitacao.QualidadeAmostra = request.Qualidade;
+        solicitacao.DataAvaliacaoAmostra = DateTime.UtcNow;
+        solicitacao.Status = request.Qualidade == QualidadeAmostra.Satisfatoria
+            ? StatusSolicitacao.EmAnalise
+            : StatusSolicitacao.AmostraInsatisfatoria;
+
+        auditoria.Registrar("SolicitacaoExame", solicitacao.Id, "avaliar-amostra", request.Qualidade.ToString());
+        await db.SaveChangesAsync(ct);
+        return await RecarregarDetalheAsync(id, ct);
     }
 
     public async Task<SolicitacaoDetalheDto> RegistrarResultadoAsync(
@@ -218,26 +287,27 @@ public class SolicitacaoService(IApplicationDbContext db) : ISolicitacaoService
             .FirstOrDefaultAsync(s => s.Id == id, ct)
             ?? throw new NotFoundException("Solicitação não encontrada.");
 
-        if (solicitacao.Status is StatusSolicitacao.Pendente or StatusSolicitacao.Cancelado)
-            throw new ValidationAppException("Confirme o recebimento antes de lançar o resultado.");
+        if (solicitacao.Status != StatusSolicitacao.EmAnalise)
+            throw new ValidationAppException("A amostra precisa estar satisfatória (testagem em andamento) para lançar o resultado.");
 
         if (solicitacao.ResultadoLaboratorial != null)
-            throw new ConflictException("Resultado já registrado para esta solicitação.");
+            throw new ConflictException("Resultado já registrado para esta solicitação. Abra uma nova coleta para o mesmo paciente.");
 
-        var responsavel = await db.Usuarios
-            .Where(u => u.Ativo && u.Perfil == PerfilUsuario.Laboratorio)
-            .OrderBy(u => u.CriadoEm)
-            .FirstOrDefaultAsync(ct);
+        if (string.IsNullOrWhiteSpace(request.AssinaturaBase64))
+            throw new ValidationAppException("A assinatura do responsável é obrigatória.");
+
+        if (string.IsNullOrWhiteSpace(request.AssinadoPorNome) && string.IsNullOrWhiteSpace(currentUser.Nome))
+            throw new ValidationAppException("Informe o nome de quem assina o laudo.");
 
         var positivo = request.TesteRapido == ResultadoTeste.Positivo
+            || request.Cultura == ResultadoTeste.Positivo
             || request.ToxinaA == ResultadoTeste.Positivo
-            || request.ToxinaB == ResultadoTeste.Positivo
-            || request.Cultura == ResultadoTeste.Positivo;
+            || request.ToxinaB == ResultadoTeste.Positivo;
 
         solicitacao.Status = StatusSolicitacao.ResultadoLiberado;
         solicitacao.ResultadoLaboratorial = new ResultadoLaboratorial
         {
-            ResponsavelId = responsavel?.Id,
+            ResponsavelId = currentUser.UsuarioId,
             DataResultado = DateTime.UtcNow,
             TesteRapido = request.TesteRapido,
             ToxinaA = request.ToxinaA,
@@ -251,6 +321,12 @@ public class SolicitacaoService(IApplicationDbContext db) : ISolicitacaoService
             DataLiberacaoIsolamento = !positivo && solicitacao.Internacao.IsolamentoAtivo
                 ? DateTime.UtcNow
                 : null,
+            AssinaturaBase64 = NormalizarAssinatura(request.AssinaturaBase64),
+            AssinadoPorNome = string.IsNullOrWhiteSpace(request.AssinadoPorNome)
+                ? currentUser.Nome
+                : request.AssinadoPorNome.Trim(),
+            AssinadoEm = DateTime.UtcNow,
+            LaudoGeradoEm = DateTime.UtcNow,
         };
 
         if (positivo)
@@ -266,11 +342,98 @@ public class SolicitacaoService(IApplicationDbContext db) : ISolicitacaoService
                 await CriarAlertasNegativoAsync(solicitacao, ct);
         }
 
+        auditoria.Registrar(
+            "SolicitacaoExame",
+            solicitacao.Id,
+            "resultado",
+            $"{solicitacao.IdAmostraUnico} TR={request.TesteRapido} Cultura={request.Cultura}");
         await db.SaveChangesAsync(ct);
+        return await RecarregarDetalheAsync(id, ct);
+    }
 
-        var atualizada = await CarregarDetalheQuery()
-            .FirstAsync(s => s.Id == id, ct);
+    public async Task<SolicitacaoDetalheDto> AnexarLaudoAsync(
+        Guid id,
+        string nomeArquivo,
+        string contentType,
+        byte[] bytes,
+        CancellationToken ct = default)
+    {
+        if (bytes.Length == 0)
+            throw new ValidationAppException("Arquivo vazio.");
 
+        if (bytes.Length > 8 * 1024 * 1024)
+            throw new ValidationAppException("O anexo deve ter no máximo 8 MB.");
+
+        var permitido = contentType is "application/pdf" or "image/png" or "image/jpeg";
+        if (!permitido)
+            throw new ValidationAppException("Anexe um PDF, PNG ou JPG.");
+
+        var solicitacao = await db.SolicitacoesExame
+            .Include(s => s.ResultadoLaboratorial)
+            .FirstOrDefaultAsync(s => s.Id == id, ct)
+            ?? throw new NotFoundException("Solicitação não encontrada.");
+
+        if (solicitacao.ResultadoLaboratorial is null)
+            throw new ValidationAppException("Lance o resultado antes de anexar o laudo.");
+
+        solicitacao.ResultadoLaboratorial.LaudoAnexoNome = Path.GetFileName(nomeArquivo);
+        solicitacao.ResultadoLaboratorial.LaudoAnexoContentType = contentType;
+        solicitacao.ResultadoLaboratorial.LaudoAnexoBytes = bytes;
+        solicitacao.ResultadoLaboratorial.LaudoGeradoEm ??= DateTime.UtcNow;
+
+        auditoria.Registrar("SolicitacaoExame", solicitacao.Id, "anexar-laudo", nomeArquivo);
+        await db.SaveChangesAsync(ct);
+        return await RecarregarDetalheAsync(id, ct);
+    }
+
+    public async Task<LaudoDto> ObterLaudoAsync(Guid id, CancellationToken ct = default)
+    {
+        var s = await CarregarDetalheQuery()
+            .FirstOrDefaultAsync(x => x.Id == id, ct)
+            ?? throw new NotFoundException("Solicitação não encontrada.");
+
+        if (s.ResultadoLaboratorial is null)
+            throw new ValidationAppException("Ainda não há resultado para gerar o laudo.");
+
+        var r = s.ResultadoLaboratorial;
+        return new LaudoDto(
+            s.Id,
+            s.IdAmostraUnico,
+            s.Paciente.Nome,
+            s.Paciente.NumeroProntuario,
+            s.Internacao.Enfermaria,
+            s.CarimboDataHora,
+            s.DataColeta,
+            r.DataResultado,
+            r.TesteRapido,
+            r.Cultura,
+            r.CepaIdentificada,
+            r.ObservacoesLaboratorio,
+            r.AssinaturaBase64,
+            r.AssinadoPorNome,
+            r.AssinadoEm,
+            _plataforma.Nome,
+            _plataforma.Laboratorio);
+    }
+
+    public async Task<(string Nome, string ContentType, byte[] Bytes)> BaixarAnexoAsync(
+        Guid id,
+        CancellationToken ct = default)
+    {
+        var r = await db.ResultadosLaboratoriais
+            .AsNoTracking()
+            .FirstOrDefaultAsync(x => x.SolicitacaoExameId == id, ct)
+            ?? throw new NotFoundException("Resultado não encontrado.");
+
+        if (r.LaudoAnexoBytes is null || r.LaudoAnexoBytes.Length == 0)
+            throw new NotFoundException("Nenhum laudo anexado.");
+
+        return (r.LaudoAnexoNome ?? "laudo.pdf", r.LaudoAnexoContentType ?? "application/pdf", r.LaudoAnexoBytes);
+    }
+
+    private async Task<SolicitacaoDetalheDto> RecarregarDetalheAsync(Guid id, CancellationToken ct)
+    {
+        var atualizada = await CarregarDetalheQuery().FirstAsync(s => s.Id == id, ct);
         return MapDetalhe(atualizada);
     }
 
@@ -327,18 +490,21 @@ public class SolicitacaoService(IApplicationDbContext db) : ISolicitacaoService
             .Include(s => s.FormularioClinico)
             .Include(s => s.ResultadoLaboratorial);
 
-    private static SolicitacaoDetalheDto MapDetalhe(SolicitacaoExame s) =>
-        new(
+    private SolicitacaoDetalheDto MapDetalhe(SolicitacaoExame s)
+    {
+        var ocultarFicha = currentUser.Perfil == PerfilUsuario.Laboratorio;
+        return new(
             s.Id,
             s.IdAmostraUnico,
             s.Status,
             s.CarimboDataHora,
             s.DataColeta,
             s.DataRecebimentoLaboratorio,
+            s.QualidadeAmostra,
             s.Paciente.Nome,
             s.Paciente.NumeroProntuario,
             s.Internacao.Enfermaria,
-            s.FormularioClinico == null ? null : new FormularioClinicoDto(
+            ocultarFicha || s.FormularioClinico == null ? null : new FormularioClinicoDto(
                 s.FormularioClinico.Diarreia,
                 s.FormularioClinico.DiasInicioSintomas,
                 s.FormularioClinico.EpisodiosDiarreia24h,
@@ -370,15 +536,21 @@ public class SolicitacaoService(IApplicationDbContext db) : ISolicitacaoService
                 s.ResultadoLaboratorial.ToxinaB,
                 s.ResultadoLaboratorial.Cultura,
                 s.ResultadoLaboratorial.CepaIdentificada,
-                s.ResultadoLaboratorial.AlertaPositivoEnviado));
+                s.ResultadoLaboratorial.AlertaPositivoEnviado,
+                s.ResultadoLaboratorial.AssinadoPorNome,
+                s.ResultadoLaboratorial.AssinadoEm,
+                !string.IsNullOrWhiteSpace(s.ResultadoLaboratorial.AssinaturaBase64),
+                s.ResultadoLaboratorial.LaudoAnexoNome,
+                s.ResultadoLaboratorial.LaudoGeradoEm));
+    }
 
     private async Task<string> GerarIdAmostraAsync(CancellationToken ct)
     {
         var hoje = DateTime.UtcNow.ToString("yyyyMMdd");
-        var prefixo = $"ELO-{hoje}-";
+        var prefixo = $"CDIF-{hoje}-";
 
         var ultimo = await db.SolicitacoesExame
-            .Where(s => s.IdAmostraUnico.StartsWith(prefixo))
+            .Where(s => s.IdAmostraUnico.StartsWith(prefixo) || s.IdAmostraUnico.StartsWith($"ELO-{hoje}-"))
             .OrderByDescending(s => s.IdAmostraUnico)
             .Select(s => s.IdAmostraUnico)
             .FirstOrDefaultAsync(ct);
@@ -386,11 +558,24 @@ public class SolicitacaoService(IApplicationDbContext db) : ISolicitacaoService
         var sequencia = 1;
         if (ultimo != null)
         {
-            var parte = ultimo[prefixo.Length..];
-            if (int.TryParse(parte, out var n))
+            var idx = ultimo.LastIndexOf('-');
+            if (idx >= 0 && int.TryParse(ultimo[(idx + 1)..], out var n))
                 sequencia = n + 1;
         }
 
         return $"{prefixo}{sequencia:D4}";
+    }
+
+    private static string? NormalizarAssinatura(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw))
+            return null;
+
+        if (raw.Length > 400_000)
+            throw new ValidationAppException("Assinatura muito grande.");
+
+        return raw.StartsWith("data:image/", StringComparison.OrdinalIgnoreCase)
+            ? raw
+            : $"data:image/png;base64,{raw}";
     }
 }

@@ -445,6 +445,16 @@ namespace Elo.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("AssinaturaBase64")
+                        .HasColumnType("text");
+
+                    b.Property<string>("AssinadoPorNome")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime?>("AssinadoEm")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<int>("Cultura")
                         .HasColumnType("integer");
 
@@ -459,6 +469,20 @@ namespace Elo.Infrastructure.Persistence.Migrations
 
                     b.Property<bool>("LiberacaoIsolamentoEnviada")
                         .HasColumnType("boolean");
+
+                    b.Property<byte[]>("LaudoAnexoBytes")
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("LaudoAnexoContentType")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("LaudoAnexoNome")
+                        .HasMaxLength(260)
+                        .HasColumnType("character varying(260)");
+
+                    b.Property<DateTime?>("LaudoGeradoEm")
+                        .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("ObservacoesLaboratorio")
                         .HasColumnType("text");
@@ -503,6 +527,9 @@ namespace Elo.Infrastructure.Persistence.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("DataAvaliacaoAmostra")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime?>("DataColeta")
                         .HasColumnType("timestamp with time zone");
 
@@ -519,6 +546,11 @@ namespace Elo.Infrastructure.Persistence.Migrations
 
                     b.Property<Guid>("PacienteId")
                         .HasColumnType("uuid");
+
+                    b.Property<string>("QualidadeAmostra")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
 
                     b.Property<Guid>("SolicitanteId")
                         .HasColumnType("uuid");
@@ -626,6 +658,10 @@ namespace Elo.Infrastructure.Persistence.Migrations
                         .HasMaxLength(32)
                         .HasColumnType("character varying(32)");
 
+                    b.Property<string>("Setor")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
                     b.Property<string>("SenhaHash")
                         .IsRequired()
                         .HasMaxLength(512)
@@ -637,6 +673,72 @@ namespace Elo.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("usuarios", (string)null);
+                });
+
+            modelBuilder.Entity("Elo.Domain.Entities.SolicitacaoAcesso", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("AtualizadoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Email")
+                        .IsRequired()
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<string>("Justificativa")
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("MotivoRecusa")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<string>("PerfilSolicitado")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<DateTime?>("RevisadoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("RevisadoPorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Setor")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("character varying(32)");
+
+                    b.Property<Guid?>("UsuarioCriadoId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Email");
+
+                    b.HasIndex("RevisadoPorId");
+
+                    b.HasIndex("Status");
+
+                    b.HasIndex("UsuarioCriadoId");
+
+                    b.ToTable("solicitacoes_acesso", (string)null);
                 });
 
             modelBuilder.Entity("Elo.Domain.Entities.AuditoriaLog", b =>
@@ -727,6 +829,23 @@ namespace Elo.Infrastructure.Persistence.Migrations
                     b.Navigation("Paciente");
 
                     b.Navigation("Solicitante");
+                });
+
+            modelBuilder.Entity("Elo.Domain.Entities.SolicitacaoAcesso", b =>
+                {
+                    b.HasOne("Elo.Domain.Entities.Usuario", "RevisadoPor")
+                        .WithMany()
+                        .HasForeignKey("RevisadoPorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Elo.Domain.Entities.Usuario", "UsuarioCriado")
+                        .WithMany()
+                        .HasForeignKey("UsuarioCriadoId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("RevisadoPor");
+
+                    b.Navigation("UsuarioCriado");
                 });
 
             modelBuilder.Entity("Elo.Domain.Entities.TratamentoCdiff", b =>

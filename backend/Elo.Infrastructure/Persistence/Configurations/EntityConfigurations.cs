@@ -15,6 +15,7 @@ public class UsuarioConfiguration : IEntityTypeConfiguration<Usuario>
         builder.HasIndex(u => u.Email).IsUnique();
         builder.Property(u => u.SenhaHash).HasMaxLength(512).IsRequired();
         builder.Property(u => u.Perfil).HasConversion<string>().HasMaxLength(32);
+        builder.Property(u => u.Setor).HasMaxLength(120);
     }
 }
 
@@ -54,6 +55,7 @@ public class SolicitacaoExameConfiguration : IEntityTypeConfiguration<Solicitaca
         builder.Property(s => s.IdAmostraUnico).HasMaxLength(50).IsRequired();
         builder.HasIndex(s => s.IdAmostraUnico).IsUnique();
         builder.Property(s => s.Status).HasConversion<string>().HasMaxLength(32);
+        builder.Property(s => s.QualidadeAmostra).HasConversion<string>().HasMaxLength(32);
 
         builder.HasOne(s => s.Paciente)
             .WithMany(p => p.Solicitacoes)
@@ -92,6 +94,9 @@ public class ResultadoLaboratorialConfiguration : IEntityTypeConfiguration<Resul
         builder.ToTable("resultados_laboratoriais");
         builder.HasKey(r => r.Id);
         builder.Property(r => r.CepaIdentificada).HasMaxLength(100);
+        builder.Property(r => r.AssinadoPorNome).HasMaxLength(200);
+        builder.Property(r => r.LaudoAnexoNome).HasMaxLength(260);
+        builder.Property(r => r.LaudoAnexoContentType).HasMaxLength(120);
         builder.HasOne(r => r.SolicitacaoExame)
             .WithOne(s => s.ResultadoLaboratorial)
             .HasForeignKey<ResultadoLaboratorial>(r => r.SolicitacaoExameId)
@@ -138,5 +143,31 @@ public class NotificacaoConfiguration : IEntityTypeConfiguration<Notificacao>
         builder.Property(n => n.PerfilDestino).HasConversion<string>().HasMaxLength(32);
         builder.HasIndex(n => n.CriadoEm);
         builder.HasIndex(n => new { n.Lida, n.PerfilDestino });
+    }
+}
+
+public class SolicitacaoAcessoConfiguration : IEntityTypeConfiguration<SolicitacaoAcesso>
+{
+    public void Configure(EntityTypeBuilder<SolicitacaoAcesso> builder)
+    {
+        builder.ToTable("solicitacoes_acesso");
+        builder.HasKey(s => s.Id);
+        builder.Property(s => s.Nome).HasMaxLength(200).IsRequired();
+        builder.Property(s => s.Email).HasMaxLength(256).IsRequired();
+        builder.Property(s => s.Setor).HasMaxLength(120);
+        builder.Property(s => s.Justificativa).HasMaxLength(1000);
+        builder.Property(s => s.MotivoRecusa).HasMaxLength(500);
+        builder.Property(s => s.PerfilSolicitado).HasConversion<string>().HasMaxLength(32);
+        builder.Property(s => s.Status).HasConversion<string>().HasMaxLength(32);
+        builder.HasIndex(s => s.Email);
+        builder.HasIndex(s => s.Status);
+        builder.HasOne(s => s.RevisadoPor)
+            .WithMany()
+            .HasForeignKey(s => s.RevisadoPorId)
+            .OnDelete(DeleteBehavior.SetNull);
+        builder.HasOne(s => s.UsuarioCriado)
+            .WithMany()
+            .HasForeignKey(s => s.UsuarioCriadoId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }

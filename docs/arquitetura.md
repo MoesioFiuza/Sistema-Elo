@@ -1,4 +1,4 @@
-# Arquitetura — Sistema Elo
+# Arquitetura — Cdigital (NEPEC)
 
 ## Visão geral
 
@@ -43,16 +43,18 @@ flowchart LR
 - **ResultadoLaboratorial** — teste rápido, toxina, cepa
 - **TratamentoCdiff** — medicação, resposta, recidiva
 - **AuditoriaLog** — trilha imutável de alterações
-- **Usuario** — RBAC (Médico, Lab, CCIH, Enfermagem, Admin)
+- **Usuario** — RBAC individual (Médico, Lab, CCIH, Enfermagem, Admin)
+- **SolicitacaoAcesso** — pedido de conta aprovado pela administradora
 
 ## Fluxo principal
 
-1. Médico cadastra/busca paciente e preenche formulário clínico
-2. Sistema gera `IdAmostraUnico` e envia para fila do laboratório
-3. Laboratório confirma recebimento e lança resultado
-4. Resultado **positivo** → alerta CCIH + médico + enfermagem (isolamento)
-5. Resultado **negativo** → libera isolamento
-6. Pesquisa registra tratamento e desfecho para análises
+1. Profissional solicita acesso individual; a administradora aprova no painel
+2. Médico cadastra/busca paciente, confirma diarreia (≥3 episódios, líquido/pastoso) e gera nova amostra
+3. Laboratório segue a trilha: solicitação em andamento → coleta → qualidade da amostra → testagem
+4. Resultado (teste rápido + cultura) gera laudo com assinatura no site
+5. Resultado **positivo** → alerta CCIH + médico + enfermagem (isolamento)
+6. Resultado **negativo** → libera isolamento
+7. Pesquisa registra tratamento e desfecho (laboratório não acessa)
 
 ## Segurança (não negociável)
 

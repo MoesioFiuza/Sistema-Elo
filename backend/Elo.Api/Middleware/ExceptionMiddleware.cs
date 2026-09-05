@@ -28,6 +28,7 @@ public class ExceptionMiddleware(RequestDelegate next, ILogger<ExceptionMiddlewa
             NotFoundException nf => (HttpStatusCode.NotFound, nf.Message),
             ConflictException cf => (HttpStatusCode.Conflict, cf.Message),
             ValidationAppException ve => (HttpStatusCode.BadRequest, ve.Message),
+            ForbiddenException fe => (HttpStatusCode.Forbidden, fe.Message),
             ValidationException fv => (HttpStatusCode.BadRequest,
                 string.Join(" ", fv.Errors.Select(e => e.ErrorMessage))),
             _ => (HttpStatusCode.InternalServerError, "Erro interno do servidor."),

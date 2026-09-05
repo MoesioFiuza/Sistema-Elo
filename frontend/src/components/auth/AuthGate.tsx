@@ -79,7 +79,7 @@ export function AuthGate({
           </Link>
         </div>
         <p className="mt-6 text-xs text-slate-500">
-          Ex.: lab@elo.local · ccih@elo.local · medico@elo.local — senha Elo@123
+          Desfechos clínicos e pesquisa são restritos à equipe. O laboratório não acessa esses dados.
         </p>
       </div>
     );

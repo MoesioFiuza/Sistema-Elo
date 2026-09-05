@@ -14,6 +14,7 @@ public interface IApplicationDbContext
     DbSet<TratamentoCdiff> TratamentosCdiff { get; }
     DbSet<AuditoriaLog> AuditoriaLogs { get; }
     DbSet<Notificacao> Notificacoes { get; }
+    DbSet<SolicitacaoAcesso> SolicitacoesAcesso { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

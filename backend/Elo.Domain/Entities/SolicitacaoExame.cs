@@ -20,6 +20,8 @@ public class SolicitacaoExame : EntityBase
 
     public DateTime? DataColeta { get; set; }
     public DateTime? DataRecebimentoLaboratorio { get; set; }
+    public QualidadeAmostra QualidadeAmostra { get; set; } = QualidadeAmostra.NaoAvaliada;
+    public DateTime? DataAvaliacaoAmostra { get; set; }
 
     public FormularioClinico? FormularioClinico { get; set; }
     public ResultadoLaboratorial? ResultadoLaboratorial { get; set; }

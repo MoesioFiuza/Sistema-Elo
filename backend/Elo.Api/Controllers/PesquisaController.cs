@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace Elo.Api.Controllers;
 
 [ApiController]
-[Authorize]
+[Authorize(Policy = "EquipeClinica")]
 [Route("api/v1")]
 public class PesquisaController(ITratamentoService tratamentoService) : ControllerBase
 {

@@ -23,7 +23,8 @@ public record PacienteDetalheDto(
     SimNaoNaoRegistrado HistoricoCovid,
     SimNaoNaoRegistrado HistoricoTransplante,
     SimNaoNaoRegistrado HistoricoQuimioterapia,
-    IReadOnlyList<InternacaoResumoDto> Internacoes);
+    IReadOnlyList<InternacaoResumoDto> Internacoes,
+    IReadOnlyList<ColetaHistoricoDto> ColetasAnteriores);
 
 public record InternacaoResumoDto(
     Guid Id,
@@ -31,3 +32,13 @@ public record InternacaoResumoDto(
     string? Leito,
     DateTime DataInternacao,
     bool Ativa);
+
+public record ColetaHistoricoDto(
+    Guid SolicitacaoId,
+    string IdAmostraUnico,
+    StatusSolicitacao Status,
+    DateTime CarimboDataHora,
+    DateTime? DataColeta,
+    DateTime? DataResultado,
+    ResultadoTeste? TesteRapido,
+    ResultadoTeste? Cultura);

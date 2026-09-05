@@ -23,4 +23,12 @@ public class ResultadoLaboratorial : EntityBase
     public DateTime? DataAlertaEnviado { get; set; }
     public bool LiberacaoIsolamentoEnviada { get; set; }
     public DateTime? DataLiberacaoIsolamento { get; set; }
+
+    public string? AssinaturaBase64 { get; set; }
+    public string? AssinadoPorNome { get; set; }
+    public DateTime? AssinadoEm { get; set; }
+    public string? LaudoAnexoNome { get; set; }
+    public string? LaudoAnexoContentType { get; set; }
+    public byte[]? LaudoAnexoBytes { get; set; }
+    public DateTime? LaudoGeradoEm { get; set; }
 }

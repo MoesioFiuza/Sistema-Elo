@@ -3,16 +3,15 @@ services:
     image: postgres:16-alpine
     container_name: elo-postgres
     environment:
-      POSTGRES_DB: elo
-      POSTGRES_USER: elo
-      POSTGRES_PASSWORD: elo_dev
-    # Só na máquina (não expor Postgres na internet)
+      POSTGRES_DB: ${POSTGRES_DB:-elo}
+      POSTGRES_USER: ${POSTGRES_USER:-elo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-elo_dev}
     ports:
       - "127.0.0.1:5432:5432"
     volumes:
       - elo_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U elo -d elo"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-elo} -d ${POSTGRES_DB:-elo}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -23,11 +22,28 @@ services:
       dockerfile: Dockerfile
     container_name: elo-api
     environment:
-      ASPNETCORE_ENVIRONMENT: Development
-      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=elo;Username=elo;Password=elo_dev
-      Cors__Origins__0: http://localhost:3000
-      Cors__Origins__1: http://66.94.98.57:3000
-    # 5080 no host — 5000/5001 costumam estar ocupadas no Contabo
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
+      ConnectionStrings__DefaultConnection: Host=postgres;Port=5432;Database=${POSTGRES_DB:-elo};Username=${POSTGRES_USER:-elo};Password=${POSTGRES_PASSWORD:-elo_dev}
+      Cors__Origins__0: ${CORS_ORIGIN:-http://localhost:3000}
+      Jwt__Issuer: cdigital
+      Jwt__Audience: cdigital
+      Jwt__SecretKey: ${JWT_SECRET:-sistema-elo-dev-secret-key-minimo-32-chars!!}
+      Jwt__ExpirationMinutes: "480"
+      Plataforma__Nome: Cdigital
+      Plataforma__Laboratorio: NEPEC
+      Plataforma__AdminEmail: ${ADMIN_EMAIL:-carolfreitasmuniz@alu.ufc.br}
+      Plataforma__FrontendUrl: ${FRONTEND_URL:-http://localhost:3000}
+      Seed__AdminEmail: ${ADMIN_EMAIL:-carolfreitasmuniz@alu.ufc.br}
+      Seed__AdminNome: ${ADMIN_NOME:-Carol Freitas Muniz}
+      Seed__AdminPassword: ${ADMIN_PASSWORD:-}
+      Seed__IncluirUsuariosDemo: ${SEED_DEMO:-false}
+      Seed__IncluirPacientesDemo: ${SEED_DEMO:-false}
+      Smtp__Enabled: ${SMTP_ENABLED:-false}
+      Smtp__Host: ${SMTP_HOST:-}
+      Smtp__Port: ${SMTP_PORT:-587}
+      Smtp__User: ${SMTP_USER:-}
+      Smtp__Password: ${SMTP_PASSWORD:-}
+      Smtp__From: ${SMTP_FROM:-Cdigital NEPEC <noreply@localhost>}
     ports:
       - "5080:8080"
     depends_on:
@@ -43,6 +59,7 @@ services:
     container_name: elo-frontend
     environment:
       API_INTERNAL_URL: http://api:8080/api/v1
+      NEXT_PUBLIC_SHOW_DEMO: ${NEXT_PUBLIC_SHOW_DEMO:-false}
     ports:
       - "3000:3000"
     depends_on:

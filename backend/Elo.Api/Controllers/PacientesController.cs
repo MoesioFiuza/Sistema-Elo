@@ -30,6 +30,7 @@ public class PacientesController(
     }
 
     [HttpPost]
+    [Authorize(Policy = "Medico")]
     public async Task<ActionResult<PacienteDetalheDto>> Criar(
         [FromBody] CreatePacienteRequest request,
         CancellationToken ct)

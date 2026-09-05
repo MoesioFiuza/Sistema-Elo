@@ -19,6 +19,7 @@ public class EloDbContext : DbContext, IApplicationDbContext
     public DbSet<TratamentoCdiff> TratamentosCdiff => Set<TratamentoCdiff>();
     public DbSet<AuditoriaLog> AuditoriaLogs => Set<AuditoriaLog>();
     public DbSet<Notificacao> Notificacoes => Set<Notificacao>();
+    public DbSet<SolicitacaoAcesso> SolicitacoesAcesso => Set<SolicitacaoAcesso>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
