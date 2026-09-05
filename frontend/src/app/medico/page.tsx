@@ -446,7 +446,7 @@ function MedicoContent() {
             </p>
           )}
 
-          {selecionado && selecionado.coletasAnteriores?.length > 0 && (
+          {selecionado && (selecionado.coletasAnteriores?.length ?? 0) > 0 && (
             <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
               <h3 className="text-xs font-semibold uppercase tracking-wider text-teal-700">
                 Coletas anteriores deste paciente
